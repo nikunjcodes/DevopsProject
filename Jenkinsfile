@@ -16,36 +16,36 @@ pipeline {
             steps {
                 script {
                     def services = ['flightservice', 'userservice', 'tickerservice']
-                    services.each { svc ->
-                        echo "🔨 Building image for ${svc}"
+                    for (svc in services) {
+                        echo "🔨 Building Docker image for ${svc}"
                         sh "docker build -t ${svc}:latest ${svc}"
                     }
                 }
             }
         }
 
-        stage('Start Services') {
+        stage('Start Services with Docker Compose') {
             steps {
-                echo "🚀 Starting all services using Docker Compose"
+                echo "🚀 Starting all services with docker-compose"
                 sh 'docker-compose up -d'
             }
         }
 
-        stage('Wait & Health Checks') {
+        stage('Wait and Run Health Checks') {
             steps {
                 script {
-                    echo "⏳ Waiting for services to be up..."
+                    echo "⏳ Waiting for services to become healthy..."
                     sleep(time: 20, unit: 'SECONDS')
 
-                    def healthEndpoints = [
+                    def endpoints = [
                         [name: 'flightservice', port: 8080],
-                        [name: 'userservice', port: 8081],
+                        [name: 'userservice',  port: 8081],
                         [name: 'tickerservice', port: 8082],
                     ]
 
-                    healthEndpoints.each { svc ->
-                        echo "🔍 Checking ${svc.name} on port ${svc.port}"
-                        sh "curl --fail --silent http://localhost:${svc.port}/actuator/health || exit 1"
+                    for (svc in endpoints) {
+                        echo "🔍 Checking ${svc.name} at port ${svc.port}"
+                        sh "curl --fail --silent http://localhost:${svc.port}/actuator/health || (echo '${svc.name} failed health check' && exit 1)"
                     }
                 }
             }
@@ -54,11 +54,11 @@ pipeline {
 
     post {
         success {
-            echo "✅ All microservices are up and healthy."
+            echo "✅ All microservices started and passed health checks."
         }
         failure {
-            echo "❌ One or more microservices failed health checks."
-            sh 'docker-compose logs'
+            echo "❌ One or more services failed."
+            sh 'docker-compose logs || true'
         }
         always {
             echo "🧹 Cleaning up containers..."
@@ -66,3 +66,4 @@ pipeline {
         }
     }
 }
+g
