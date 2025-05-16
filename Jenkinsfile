@@ -1,15 +1,12 @@
-// Jenkinsfile
 pipeline {
     agent any
 
     environment {
-        EC2_HOST = "ec2-user@YOUR_EC2_PUBLIC_IP"
-        EC2_KEY  = "/home/jenkins/.ssh/your-key.pem"
-        COMPOSE_FILE = "docker-compose.yml"
+        COMPOSE_PROJECT_NAME = "microservices"
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Code') {
             steps {
                 checkout scm
             }
@@ -18,55 +15,54 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    def services = [
-                        [name: "flightservice", path: "flightservice"],
-                        [name: "userservice",  path: "userservice"],
-                        [name: "tickerservice",path: "tickerservice"]
-                    ]
+                    def services = ['flightservice', 'userservice', 'tickerservice']
                     services.each { svc ->
-                        dir(svc.path) {
-                            sh "docker build -t ${svc.name}:latest ."
-                        }
+                        echo "🔨 Building image for ${svc}"
+                        sh "docker build -t ${svc}:latest ${svc}"
                     }
                 }
             }
         }
 
-        stage('Transfer Images to EC2') {
+        stage('Start Services') {
+            steps {
+                echo "🚀 Starting all services using Docker Compose"
+                sh 'docker-compose up -d'
+            }
+        }
+
+        stage('Wait & Health Checks') {
             steps {
                 script {
-                    ["flightservice","userservice","tickerservice"].each { svc ->
-                        sh """
-                        docker save ${svc}:latest \
-                          | bzip2 \
-                          | ssh -i ${EC2_KEY} ${EC2_HOST} 'bunzip2 | docker load'
-                        """
+                    echo "⏳ Waiting for services to be up..."
+                    sleep(time: 20, unit: 'SECONDS')
+
+                    def healthEndpoints = [
+                        [name: 'flightservice', port: 8080],
+                        [name: 'userservice', port: 8081],
+                        [name: 'tickerservice', port: 8082],
+                    ]
+
+                    healthEndpoints.each { svc ->
+                        echo "🔍 Checking ${svc.name} on port ${svc.port}"
+                        sh "curl --fail --silent http://localhost:${svc.port}/actuator/health || exit 1"
                     }
                 }
-            }
-        }
-
-        stage('Transfer Compose File') {
-            steps {
-                sh "scp -i ${EC2_KEY} ${COMPOSE_FILE} ${EC2_HOST}:/home/ec2-user/${COMPOSE_FILE}"
-            }
-        }
-
-        stage('Remote Deploy') {
-            steps {
-                sh """
-                ssh -i ${EC2_KEY} ${EC2_HOST} << 'EOF'
-                  cd /home/ec2-user
-                  docker compose down
-                  docker compose up -d
-                EOF
-                """
             }
         }
     }
 
     post {
-        success { echo 'Deployment succeeded.' }
-        failure { echo 'Deployment failed.' }
+        success {
+            echo "✅ All microservices are up and healthy."
+        }
+        failure {
+            echo "❌ One or more microservices failed health checks."
+            sh 'docker-compose logs'
+        }
+        always {
+            echo "🧹 Cleaning up containers..."
+            sh 'docker-compose down'
+        }
     }
 }
