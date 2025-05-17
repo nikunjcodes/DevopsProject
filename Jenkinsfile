@@ -26,8 +26,8 @@ pipeline {
 
         stage('Start Services with Docker Compose') {
             steps {
-                echo "🚀 Starting all services with docker-compose"
-                sh 'docker-compose up -d'
+                echo "🚀 Starting all services with Docker Compose"
+                sh 'docker compose up -d'
             }
         }
 
@@ -58,12 +58,11 @@ pipeline {
         }
         failure {
             echo "❌ One or more services failed."
-            sh 'docker-compose logs || true'
+            sh 'docker compose logs || true'
         }
         always {
             echo "🧹 Cleaning up containers..."
-            sh 'docker-compose down'
+            sh 'docker compose down || true'
         }
     }
 }
-g
