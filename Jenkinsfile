@@ -15,7 +15,7 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 script {
-                    def services = ['flightservice', 'userservice', 'tickerservice']
+                    def services = ['flightservice', 'userservice', 'ticketservice']
                     for (svc in services) {
                         echo "🔨 Building Docker image for ${svc}"
                         sh "docker build -t ${svc}:latest ${svc}"
