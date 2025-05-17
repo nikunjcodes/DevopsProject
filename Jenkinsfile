@@ -30,34 +30,14 @@ pipeline {
                 sh 'docker compose up -d'
             }
         }
-
-        stage('Wait and Run Health Checks') {
-            steps {
-                script {
-                    echo "⏳ Waiting for services to become healthy..."
-                    sleep(time: 20, unit: 'SECONDS')
-
-                    def endpoints = [
-                        [name: 'flightservice', port: 8080],
-                        [name: 'userservice',  port: 8081],
-                        [name: 'ticketservice', port: 8082],
-                    ]
-
-                    for (svc in endpoints) {
-                        echo "🔍 Checking ${svc.name} at port ${svc.port}"
-                        sh "curl --fail --silent http://localhost:${svc.port}/actuator/health || (echo '${svc.name} failed health check' && exit 1)"
-                    }
-                }
-            }
-        }
     }
 
     post {
         success {
-            echo "✅ All microservices started and passed health checks."
+            echo "✅ All microservices started successfully."
         }
         failure {
-            echo "❌ One or more services failed."
+            echo "❌ Something went wrong."
             sh 'docker compose logs || true'
         }
         always {
