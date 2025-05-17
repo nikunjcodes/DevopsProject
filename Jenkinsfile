@@ -40,7 +40,7 @@ pipeline {
                     def endpoints = [
                         [name: 'flightservice', port: 8080],
                         [name: 'userservice',  port: 8081],
-                        [name: 'tickerservice', port: 8082],
+                        [name: 'ticketservice', port: 8082],
                     ]
 
                     for (svc in endpoints) {
